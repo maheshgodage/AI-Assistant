@@ -38,8 +38,18 @@ with sr.Microphone() as source:
         RECOGNIZER.energy_threshold = 500 
         RECOGNIZER.dynamic_energy_threshold = False
 
-# Audio to String
+
+# ================== Core Functions ==================
+def speak_reply(message):
+    """Speak and display the reply message in the chat UI."""
+    app.ChatBot.addAppMsg(message)
+    print(message)
+    SPEECH_ENGINE.say(message)
+    SPEECH_ENGINE.runAndWait()
+
+
 def record_audio():
+    """Record audio from microphone and convert to text using Google Speech Recognition."""
     with sr.Microphone() as source:
         RECOGNIZER.pause_threshold = 0.8
         recognized_text = ''
@@ -48,35 +58,30 @@ def record_audio():
         try:
             recognized_text = RECOGNIZER.recognize_google(audio)
         except sr.RequestError:
-            reply('Sorry my Service is down. Plz check your Internet connection')
+            speak_reply('Sorry my Service is down. Plz check your Internet connection')
         except sr.UnknownValueError:
             print('cant recognize')
             pass
         return recognized_text.lower()
 
 
-def reply(audio):
-    app.ChatBot.addAppMsg(audio)
-
-    print(audio)
-    SPEECH_ENGINE.say(audio)
-    SPEECH_ENGINE.runAndWait()
-
-
 def greet_user():
+    """Greet the user based on current time of day."""
     hour = int(datetime.datetime.now().hour)
 
     if hour>=0 and hour<12:
-        reply("Good Morning!")
+        speak_reply("Good Morning!")
     elif hour>=12 and hour<18:
-        reply("Good Afternoon!")   
+        speak_reply("Good Afternoon!")   
     else:
-        reply("Good Evening!")  
+        speak_reply("Good Evening!")  
         
-    reply("I am Jarvis, how may I help you?")
+    speak_reply("I am Jarvis, how may I help you?")
 
-# Executes Commands (input: string)
-def respond(voice_data):
+
+# ================== Command Processing ==================
+def process_command(voice_data):
+    """Process voice commands and execute appropriate actions."""
     global FILE_EXPLORER_ACTIVE, CURRENT_FILES, IS_ASSISTANT_AWAKE, CURRENT_PATH
     print(voice_data)
     voice_data.replace('jarvis','')
@@ -92,37 +97,37 @@ def respond(voice_data):
         greet_user()
 
     elif 'what is your name' in voice_data:
-        reply('My name is Jarvis!')
+        speak_reply('My name is Jarvis!')
 
     elif 'date' in voice_data:
-        reply(TODAY.strftime("%B %d, %Y"))
+        speak_reply(TODAY.strftime("%B %d, %Y"))
 
     elif 'time' in voice_data:
-        reply(str(datetime.datetime.now()).split(" ")[1].split('.')[0])
+        speak_reply(str(datetime.datetime.now()).split(" ")[1].split('.')[0])
 
     elif 'search' in voice_data:
-        reply('Searching for ' + voice_data.split('search')[1])
+        speak_reply('Searching for ' + voice_data.split('search')[1])
         url = 'https://google.com/search?q=' + voice_data.split('search')[1]
         try:
             webbrowser.get().open(url)
-            reply('This is what I found Sir')
+            speak_reply('This is what I found Sir')
         except:
-            reply('Please check your Internet')
+            speak_reply('Please check your Internet')
 
     elif 'location' in voice_data:
-        reply('Which place are you looking for ?')
+        speak_reply('Which place are you looking for ?')
         temp_audio = record_audio()
         app.eel.addUserMsg(temp_audio)
-        reply('Locating...')
+        speak_reply('Locating...')
         url = 'https://google.nl/maps/place/' + temp_audio + '/&amp;'
         try:
             webbrowser.get().open(url)
-            reply('This is what I found Sir')
+            speak_reply('This is what I found Sir')
         except:
-            reply('Please check your Internet')
+            speak_reply('Please check your Internet')
 
     elif ('bye' in voice_data) or ('by' in voice_data):
-        reply("Good bye Sir! Have a nice day.")
+        speak_reply("Good bye Sir! Have a nice day.")
         IS_ASSISTANT_AWAKE = False
 
     elif ('exit' in voice_data) or ('terminate' in voice_data):
@@ -136,31 +141,31 @@ def respond(voice_data):
     # DYNAMIC CONTROLS
     elif 'launch gesture recognition' in voice_data:
         if Gesture_Controller.GestureController.gc_mode:
-            reply('Gesture recognition is already active')
+            speak_reply('Gesture recognition is already active')
         else:
             gc = Gesture_Controller.GestureController()
             t = Thread(target = gc.start)
             t.start()
-            reply('Launched Successfully')
+            speak_reply('Launched Successfully')
 
     elif ('stop gesture recognition' in voice_data) or ('top gesture recognition' in voice_data):
         if Gesture_Controller.GestureController.gc_mode:
             Gesture_Controller.GestureController.gc_mode = 0
-            reply('Gesture recognition stopped')
+            speak_reply('Gesture recognition stopped')
         else:
-            reply('Gesture recognition is already inactive')
+            speak_reply('Gesture recognition is already inactive')
         
     elif 'copy' in voice_data:
         with KEYBOARD_CONTROLLER.pressed(Key.ctrl):
             KEYBOARD_CONTROLLER.press('c')
             KEYBOARD_CONTROLLER.release('c')
-        reply('Copied')
+        speak_reply('Copied')
           
     elif 'page' in voice_data or 'pest'  in voice_data or 'paste' in voice_data:
         with KEYBOARD_CONTROLLER.pressed(Key.ctrl):
             KEYBOARD_CONTROLLER.press('v')
             KEYBOARD_CONTROLLER.release('v')
-        reply('Pasted')
+        speak_reply('Pasted')
         
     # File Navigation (Default Folder set to C://)
     elif 'list' in voice_data:
@@ -173,7 +178,7 @@ def respond(voice_data):
             print(str(counter) + ':  ' + f)
             filestr += str(counter) + ':  ' + f + '<br>'
         FILE_EXPLORER_ACTIVE = True
-        reply('These are the files in your root directory')
+        speak_reply('These are the files in your root directory')
         app.ChatBot.addAppMsg(filestr)
         
     elif FILE_EXPLORER_ACTIVE == True:
@@ -191,16 +196,16 @@ def respond(voice_data):
                         counter+=1
                         filestr += str(counter) + ':  ' + f + '<br>'
                         print(str(counter) + ':  ' + f)
-                    reply('Opened Successfully')
+                    speak_reply('Opened Successfully')
                     app.ChatBot.addAppMsg(filestr)
                     
                 except:
-                    reply('You do not have permission to access this folder')
+                    speak_reply('You do not have permission to access this folder')
                                     
         if 'back' in voice_data:
             filestr = ""
             if CURRENT_PATH == 'C://':
-                reply('Sorry, this is the root directory')
+                speak_reply('Sorry, this is the root directory')
             else:
                 a = CURRENT_PATH.split('//')[:-2]
                 CURRENT_PATH = '//'.join(a)
@@ -210,11 +215,11 @@ def respond(voice_data):
                     counter+=1
                     filestr += str(counter) + ':  ' + f + '<br>'
                     print(str(counter) + ':  ' + f)
-                reply('ok')
+                speak_reply('ok')
                 app.ChatBot.addAppMsg(filestr)
                    
     else: 
-        reply('I am not functioned to do this !')
+        speak_reply('I am not functioned to do this !')
 
 # ------------------Driver Code--------------------
 
@@ -239,9 +244,9 @@ while True:
     if 'jarvis' in voice_data:
         try:
             #Handle sys.exit()
-            respond(voice_data)
+            process_command(voice_data)
         except SystemExit:
-            reply("Exit Successfull")
+            speak_reply("Exit Successfull")
             break
         except:
             #some other exception got raised
