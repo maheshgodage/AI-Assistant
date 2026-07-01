@@ -18,31 +18,52 @@ import app
 from threading import Thread
 
 
-# -------------Object Initialization---------------
-today = date.today()
-r = sr.Recognizer()
-keyboard = Controller()
-engine = pyttsx3.init('sapi5')
-engine = pyttsx3.init()
-voices = engine.getProperty('voices')
-engine.setProperty('voice', voices[0].id)
+# ================== Object Initialization ==================
+TODAY = date.today()
+RECOGNIZER = sr.Recognizer()
+KEYBOARD_CONTROLLER = Controller()
+SPEECH_ENGINE = pyttsx3.init('sapi5')
+SPEECH_ENGINE = pyttsx3.init()
+VOICES = SPEECH_ENGINE.getProperty('voices')
+SPEECH_ENGINE.setProperty('voice', VOICES[0].id)
 
-# ----------------Variables------------------------
-file_exp_status = False
-files =[]
-path = ''
-is_awake = True  #Bot status
+# ================== Configuration Variables ==================
+FILE_EXPLORER_ACTIVE = False
+CURRENT_FILES = []
+CURRENT_PATH = ''
+IS_ASSISTANT_AWAKE = True
 
-# ------------------Functions----------------------
+# ================== Microphone Setup ==================
+with sr.Microphone() as source:
+        RECOGNIZER.energy_threshold = 500 
+        RECOGNIZER.dynamic_energy_threshold = False
+
+# Audio to String
+def record_audio():
+    with sr.Microphone() as source:
+        RECOGNIZER.pause_threshold = 0.8
+        recognized_text = ''
+        audio = RECOGNIZER.listen(source, phrase_time_limit=5)
+
+        try:
+            recognized_text = RECOGNIZER.recognize_google(audio)
+        except sr.RequestError:
+            reply('Sorry my Service is down. Plz check your Internet connection')
+        except sr.UnknownValueError:
+            print('cant recognize')
+            pass
+        return recognized_text.lower()
+
+
 def reply(audio):
     app.ChatBot.addAppMsg(audio)
 
     print(audio)
-    engine.say(audio)
-    engine.runAndWait()
+    SPEECH_ENGINE.say(audio)
+    SPEECH_ENGINE.runAndWait()
 
 
-def wish():
+def greet_user():
     hour = int(datetime.datetime.now().hour)
 
     if hour>=0 and hour<12:
@@ -54,49 +75,27 @@ def wish():
         
     reply("I am Jarvis, how may I help you?")
 
-# Set Microphone parameters
-with sr.Microphone() as source:
-        r.energy_threshold = 500 
-        r.dynamic_energy_threshold = False
-
-# Audio to String
-def record_audio():
-    with sr.Microphone() as source:
-        r.pause_threshold = 0.8
-        voice_data = ''
-        audio = r.listen(source, phrase_time_limit=5)
-
-        try:
-            voice_data = r.recognize_google(audio)
-        except sr.RequestError:
-            reply('Sorry my Service is down. Plz check your Internet connection')
-        except sr.UnknownValueError:
-            print('cant recognize')
-            pass
-        return voice_data.lower()
-
-
 # Executes Commands (input: string)
 def respond(voice_data):
-    global file_exp_status, files, is_awake, path
+    global FILE_EXPLORER_ACTIVE, CURRENT_FILES, IS_ASSISTANT_AWAKE, CURRENT_PATH
     print(voice_data)
     voice_data.replace('jarvis','')
     app.eel.addUserMsg(voice_data)
 
-    if is_awake==False:
+    if IS_ASSISTANT_AWAKE==False:
         if 'wake up' in voice_data:
-            is_awake = True
-            wish()
+            IS_ASSISTANT_AWAKE = True
+            greet_user()
 
     # STATIC CONTROLS
     elif 'hello' in voice_data:
-        wish()
+        greet_user()
 
     elif 'what is your name' in voice_data:
         reply('My name is Jarvis!')
 
     elif 'date' in voice_data:
-        reply(today.strftime("%B %d, %Y"))
+        reply(TODAY.strftime("%B %d, %Y"))
 
     elif 'time' in voice_data:
         reply(str(datetime.datetime.now()).split(" ")[1].split('.')[0])
@@ -124,7 +123,7 @@ def respond(voice_data):
 
     elif ('bye' in voice_data) or ('by' in voice_data):
         reply("Good bye Sir! Have a nice day.")
-        is_awake = False
+        IS_ASSISTANT_AWAKE = False
 
     elif ('exit' in voice_data) or ('terminate' in voice_data):
         if Gesture_Controller.GestureController.gc_mode:
@@ -152,43 +151,43 @@ def respond(voice_data):
             reply('Gesture recognition is already inactive')
         
     elif 'copy' in voice_data:
-        with keyboard.pressed(Key.ctrl):
-            keyboard.press('c')
-            keyboard.release('c')
+        with KEYBOARD_CONTROLLER.pressed(Key.ctrl):
+            KEYBOARD_CONTROLLER.press('c')
+            KEYBOARD_CONTROLLER.release('c')
         reply('Copied')
           
     elif 'page' in voice_data or 'pest'  in voice_data or 'paste' in voice_data:
-        with keyboard.pressed(Key.ctrl):
-            keyboard.press('v')
-            keyboard.release('v')
+        with KEYBOARD_CONTROLLER.pressed(Key.ctrl):
+            KEYBOARD_CONTROLLER.press('v')
+            KEYBOARD_CONTROLLER.release('v')
         reply('Pasted')
         
     # File Navigation (Default Folder set to C://)
     elif 'list' in voice_data:
         counter = 0
-        path = 'C://'
-        files = listdir(path)
+        CURRENT_PATH = 'C://'
+        CURRENT_FILES = listdir(CURRENT_PATH)
         filestr = ""
-        for f in files:
+        for f in CURRENT_FILES:
             counter+=1
             print(str(counter) + ':  ' + f)
             filestr += str(counter) + ':  ' + f + '<br>'
-        file_exp_status = True
+        FILE_EXPLORER_ACTIVE = True
         reply('These are the files in your root directory')
         app.ChatBot.addAppMsg(filestr)
         
-    elif file_exp_status == True:
+    elif FILE_EXPLORER_ACTIVE == True:
         counter = 0   
         if 'open' in voice_data:
-            if isfile(join(path,files[int(voice_data.split(' ')[-1])-1])):
-                os.startfile(path + files[int(voice_data.split(' ')[-1])-1])
-                file_exp_status = False
+            if isfile(join(CURRENT_PATH,CURRENT_FILES[int(voice_data.split(' ')[-1])-1])):
+                os.startfile(CURRENT_PATH + CURRENT_FILES[int(voice_data.split(' ')[-1])-1])
+                FILE_EXPLORER_ACTIVE = False
             else:
                 try:
-                    path = path + files[int(voice_data.split(' ')[-1])-1] + '//'
-                    files = listdir(path)
+                    CURRENT_PATH = CURRENT_PATH + CURRENT_FILES[int(voice_data.split(' ')[-1])-1] + '//'
+                    CURRENT_FILES = listdir(CURRENT_PATH)
                     filestr = ""
-                    for f in files:
+                    for f in CURRENT_FILES:
                         counter+=1
                         filestr += str(counter) + ':  ' + f + '<br>'
                         print(str(counter) + ':  ' + f)
@@ -200,14 +199,14 @@ def respond(voice_data):
                                     
         if 'back' in voice_data:
             filestr = ""
-            if path == 'C://':
+            if CURRENT_PATH == 'C://':
                 reply('Sorry, this is the root directory')
             else:
-                a = path.split('//')[:-2]
-                path = '//'.join(a)
-                path += '//'
-                files = listdir(path)
-                for f in files:
+                a = CURRENT_PATH.split('//')[:-2]
+                CURRENT_PATH = '//'.join(a)
+                CURRENT_PATH += '//'
+                CURRENT_FILES = listdir(CURRENT_PATH)
+                for f in CURRENT_FILES:
                     counter+=1
                     filestr += str(counter) + ':  ' + f + '<br>'
                     print(str(counter) + ':  ' + f)
@@ -226,7 +225,7 @@ t1.start()
 while not app.ChatBot.started:
     time.sleep(0.5)
 
-wish()
+greet_user()
 voice_data = None
 while True:
     if app.ChatBot.isUserInput():
@@ -249,6 +248,3 @@ while True:
             print("EXCEPTION raised while closing.") 
             break
     print(voice_data)
-        
-
-
